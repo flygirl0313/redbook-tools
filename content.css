@@ -1,23 +1,11 @@
-/* 内容脚本样式 - 注入到小红书页面中 */
+/* 小红书发布助手 - 内容脚本样式 */
 
-.redbook-tool-download:hover {
-    background: rgba(0,0,0,0.9) !important;
+.xhs-auto-filler-toast {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  z-index: 999999 !important;
 }
 
-.redbook-tool-copy:hover {
-    background: #e61e3c !important;
-}
-
-/* 确保工具按钮不被其他样式覆盖 */
-.redbook-tool-download,
-.redbook-tool-copy {
-    z-index: 9999 !important;
-    user-select: none !important;
-}
-
-/* 隐藏广告时的过渡效果 */
-.ad-container.hidden,
-[data-testid="ad"].hidden {
-    opacity: 0;
-    transition: opacity 0.3s ease;
+/* 确保 toast 在最顶层 */
+.xhs-auto-filler-toast * {
+  box-sizing: border-box;
 }

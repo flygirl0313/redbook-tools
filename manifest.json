@@ -1,24 +1,26 @@
 {
   "manifest_version": 3,
-  "name": "Redbook Tools",
+  "name": "小红书发布助手",
   "version": "1.0.0",
-  "description": "小红书工具集 - 提供更好的使用体验",
-  "permissions": [
-    "activeTab",
-    "storage"
-  ],
-  "host_permissions": [
-    "https://*.xiaohongshu.com/*"
-  ],
+  "description": "自动填充小红书发布内容，快速完成发布流程",
+  "permissions": ["activeTab", "storage", "tabs", "scripting"],
+  "host_permissions": ["https://*.xiaohongshu.com/*"],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Redbook Tools"
+    "default_title": "小红书发布助手",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "content_scripts": [
     {
       "matches": ["https://*.xiaohongshu.com/*"],
       "js": ["content.js"],
-      "css": ["content.css"]
+      "css": ["content.css"],
+      "run_at": "document_idle",
+      "all_frames": false
     }
   ],
   "background": {
@@ -28,5 +30,11 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["source/mock.json"],
+      "matches": ["https://*.xiaohongshu.com/*"]
+    }
+  ]
 }
