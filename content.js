@@ -1142,14 +1142,110 @@ async function clickPublishButton() {
   return true;
 }
 
+// 自动点击「暂存离开」按钮
+async function clickDraftButton() {
+  console.log("开始尝试点击暂存离开按钮...");
+
+  const timeout = 10000;
+  const startTime = Date.now();
+  let draftBtn = null;
+
+  while (Date.now() - startTime < timeout && !draftBtn) {
+    // 1. 优先按 class 精确查找
+    draftBtn = document.querySelector("button.cancelBtn");
+
+    // 2. 兜底：通过文本内容匹配「暂存离开」
+    if (!draftBtn) {
+      const buttons = document.querySelectorAll("button");
+      for (const btn of buttons) {
+        const text = (btn.textContent || "").trim();
+        if (text.includes("暂存离开") || text.includes("暂存")) {
+          draftBtn = btn;
+          break;
+        }
+      }
+    }
+
+    if (draftBtn) break;
+    await utils.sleep(300);
+  }
+
+  if (!draftBtn) {
+    console.warn("⚠️ 未找到暂存离开按钮，跳过自动暂存");
+    utils.showToast("⚠️ 未找到暂存按钮，请手动点击「暂存离开」", 4000);
+    return false;
+  }
+
+  const canClick = () => {
+    const disabled =
+      draftBtn.disabled ||
+      draftBtn.getAttribute("aria-disabled") === "true" ||
+      draftBtn.classList.contains("is-disabled");
+    return !disabled;
+  };
+
+  const enableTimeout = 10000;
+  const enableStart = Date.now();
+  while (Date.now() - enableStart < enableTimeout && !canClick()) {
+    console.log("暂存按钮已找到但不可点击，等待中...");
+    await utils.sleep(300);
+  }
+
+  if (!canClick()) {
+    console.warn("⚠️ 暂存按钮始终不可点击，放弃自动暂存");
+    utils.showToast("⚠️ 暂存按钮不可点击，请检查必填项后手动暂存", 4000);
+    return false;
+  }
+
+  draftBtn.click();
+  console.log("✅ 已点击暂存离开按钮");
+  utils.showToast("✅ 已自动点击暂存离开，请等待页面响应", 5000);
+  return true;
+}
+
+// 发布/暂存成功后，尝试自动点击「立即返回」按钮
+async function clickImmediateReturnButton(timeout = 15000) {
+  console.log("开始尝试点击「立即返回」按钮...");
+  const startTime = Date.now();
+  let returnBtn = null;
+
+  while (Date.now() - startTime < timeout && !returnBtn) {
+    const candidates = document.querySelectorAll("button, a");
+    for (const el of candidates) {
+      const text = (el.textContent || "").trim();
+      if (text === "立即返回" || text.includes("立即返回")) {
+        returnBtn = el;
+        break;
+      }
+    }
+    if (returnBtn) break;
+    await utils.sleep(500);
+  }
+
+  if (!returnBtn) {
+    console.warn("⚠️ 未找到「立即返回」按钮，可能页面样式变更或未成功发布");
+    return false;
+  }
+
+  returnBtn.click();
+  console.log("✅ 已点击「立即返回」按钮");
+  utils.showToast("✅ 已点击「立即返回」，准备继续下一条", 3000);
+  return true;
+}
+
 // ==================== 主控制器 ====================
 
 class XHSAutoFiller {
   constructor() {
+    // 单条数据（兼容旧逻辑）
     this.mockData = null;
     this.isRunning = false;
+
+    // 批量相关（由 popup 控制多条队列，这里只保留开关状态）
+    this.autoPublish = true; // true = 发布；false = 暂存离开
   }
 
+  // 旧接口：使用本地 mock.json，默认只取第一条
   async autoFill() {
     if (this.isRunning) {
       utils.showToast("⚠️ 正在执行中，请稍候...");
@@ -1165,17 +1261,21 @@ class XHSAutoFiller {
         throw new Error("请在小红书发布页面使用");
       }
 
-      // 2. 加载数据
+      // 2. 加载本地配置
       await this.loadMockData();
-      utils.showToast("✅ 数据加载完成");
+      const first =
+        Array.isArray(this.mockData) && this.mockData.length > 0
+          ? this.mockData[0]
+          : this.mockData;
 
-      // 3. 如果当前是首屏上传页（有 tab 和首屏上传区域），则：
-      //    - 选中「上传图文」tab
-      //    - 使用 mockData.images 上传首屏图片
-      // 首屏上传完成后，小红书页面会自动进入编辑页，这里不再额外点击「下一步」按钮，
-      // 直接继续等待编辑页元素出现并执行后续填充流程。
+      if (!first) {
+        throw new Error("本地配置数据为空");
+      }
+      utils.showToast("✅ 已加载本地配置数据");
+
+      // 3. 如果当前是首屏上传页，先处理图片上传
       if (isFirstStepUploadPage()) {
-        const uploaded = await handleFirstStepUploadPage(this.mockData);
+        const uploaded = await handleFirstStepUploadPage(first);
         if (!uploaded) {
           utils.showToast(
             "ℹ️ 已尝试处理首屏，但部分图片可能未成功上传，请稍后检查",
@@ -1184,40 +1284,8 @@ class XHSAutoFiller {
         }
       }
 
-      // 4. 等待编辑页页面就绪
-      await this.waitForPageReady();
-
-      // 5. 执行填充流程（编辑页）
-      // 图片已经在首屏上传页处理过，这里不再重复上传，避免多次触发上传逻辑
-      /*
-      if (this.mockData.images && this.mockData.images.length > 0) {
-        await uploadImages(this.mockData);
-        await utils.sleep(1000);
-      }
-      */
-
-      await fillTitle(this.mockData);
-      await utils.sleep(500);
-
-      await fillContent(this.mockData);
-      await utils.sleep(500);
-
-      if (this.mockData.tags && this.mockData.tags.length > 0) {
-        await addTags(this.mockData);
-        await utils.sleep(500);
-      }
-
-      if (this.mockData.commodityId && this.mockData.commodityId.length > 0) {
-        await selectGoods(this.mockData);
-      }
-
-      // 6. 自动点击发布按钮（如果能找到且可点击）
-      await clickPublishButton();
-
-      utils.showToast(
-        "✨ 自动填充完成！如页面仍未发布，请手动检查后点击发布",
-        4000
-      );
+      // 4/5. 通用流程处理这一条（默认走发布）
+      await this.processOne(first, { autoPublish: true });
     } catch (error) {
       console.error("自动填充失败:", error);
       utils.showToast(`❌ 填充失败: ${error.message}`, 4000);
@@ -1262,6 +1330,70 @@ class XHSAutoFiller {
     await utils.sleep(800);
     console.log("✅ 页面加载完成");
   }
+
+  // 通用：对任意一条数据执行填充 + 发布/暂存
+  async processOne(mockData, options = {}) {
+    const { autoPublish = this.autoPublish, clickReturn = false } = options;
+
+    // 等待编辑页就绪
+    await this.waitForPageReady();
+
+    await fillTitle(mockData);
+    await utils.sleep(500);
+
+    await fillContent(mockData);
+    await utils.sleep(500);
+
+    if (mockData.tags && mockData.tags.length > 0) {
+      await addTags(mockData);
+      await utils.sleep(500);
+    }
+
+    if (mockData.commodityId && mockData.commodityId.length > 0) {
+      await selectGoods(mockData);
+    }
+
+    if (autoPublish) {
+      await clickPublishButton();
+    } else {
+      await clickDraftButton();
+    }
+
+    utils.showToast(
+      autoPublish
+        ? "✨ 本条内容已自动填充并尝试发布"
+        : "✨ 本条内容已自动填充并暂存离开",
+      4000
+    );
+
+    // 如需要，尝试在发布/暂存成功页点击「立即返回」
+    if (clickReturn) {
+      await clickImmediateReturnButton();
+    }
+  }
+
+  // 给 popup 调用的入口：处理一条指定数据
+  async runOneFromPopup(mockData, options = {}) {
+    if (this.isRunning) {
+      throw new Error("当前有任务在执行，请稍后再试");
+    }
+    try {
+      this.isRunning = true;
+
+      if (!this.isPublishPage()) {
+        throw new Error("请在小红书发布页面使用");
+      }
+
+      // 如在首屏上传页，先处理首屏图片
+      if (isFirstStepUploadPage()) {
+        await handleFirstStepUploadPage(mockData);
+      }
+
+      await this.processOne(mockData, options);
+    } finally {
+      this.isRunning = false;
+    }
+  }
 }
 
 // ==================== 初始化 ====================
@@ -1275,6 +1407,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "autoFill") {
     autoFiller
       .autoFill()
+      .then(() => sendResponse({ success: true }))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  if (request.action === "processOne") {
+    autoFiller
+      .runOneFromPopup(request.mockData, {
+        autoPublish: request.autoPublish,
+        clickReturn: request.clickReturn,
+      })
       .then(() => sendResponse({ success: true }))
       .catch((error) => sendResponse({ success: false, error: error.message }));
     return true;

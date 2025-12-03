@@ -3,6 +3,17 @@
 document.addEventListener('DOMContentLoaded', function() {
   const autoFillBtn = document.getElementById('autoFillBtn');
   const statusDiv = document.getElementById('status');
+  const batchLoadBtn = document.getElementById('batchLoadBtn');
+  const batchStartBtn = document.getElementById('batchStartBtn');
+  const batchAutoPublishCheckbox = document.getElementById('batchAutoPublish');
+  const batchListEl = document.getElementById('batchList');
+  const batchJsonEl = document.getElementById('batchJson');
+
+  // 批量相关状态（完全在 popup 内部处理）
+  let batchDataList = [];
+  let batchSelectedIndexes = new Set();
+  let batchAutoPublish = true;
+  let batchRunning = false;
 
   // 检查当前标签页是否是小红书发布页面
   checkCurrentPage();
@@ -62,6 +73,158 @@ document.addEventListener('DOMContentLoaded', function() {
       autoFillBtn.disabled = false;
     }
   });
+
+  // 批量：加载数据
+  batchLoadBtn.addEventListener('click', async () => {
+    try {
+      batchLoadBtn.disabled = true;
+      updateStatus('⏳ 正在加载数据...', 'loading');
+
+      const url = chrome.runtime.getURL('source/mock.json');
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('HTTP ' + response.status);
+      }
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        throw new Error('数据格式错误，应为数组');
+      }
+
+      batchDataList = data;
+      batchSelectedIndexes = new Set();
+      renderBatchList();
+
+      updateStatus(`✅ 已加载 ${data.length} 条数据`, 'success');
+    } catch (e) {
+      console.error('加载数据失败:', e);
+      updateStatus('❌ 加载失败：' + e.message, 'error');
+    } finally {
+      batchLoadBtn.disabled = false;
+    }
+  });
+
+  // 批量：自动发布开关
+  batchAutoPublishCheckbox.addEventListener('change', (e) => {
+    batchAutoPublish = !!e.target.checked;
+  });
+
+  // 批量：开始批量
+  batchStartBtn.addEventListener('click', async () => {
+    if (batchRunning) {
+      updateStatus('⚠️ 正在处理，请稍候...', 'loading');
+      return;
+    }
+    if (!batchSelectedIndexes.size) {
+      updateStatus('请先在列表中勾选至少一条数据', 'error');
+      return;
+    }
+
+    try {
+      batchRunning = true;
+      batchStartBtn.disabled = true;
+      const indexes = Array.from(batchSelectedIndexes).sort((a, b) => a - b);
+      const total = indexes.length;
+
+      for (let i = 0; i < total; i++) {
+        const idx = indexes[i];
+        const item = batchDataList[idx];
+        if (!item) {
+          throw new Error('选中的数据不存在');
+        }
+
+        showBatchPreview(idx);
+
+        updateStatus(
+          `⏳ 正在处理第 ${i + 1} 条 / 共 ${total} 条`,
+          'loading'
+        );
+
+        // 每一条都重新获取当前活动标签页，避免中途切换
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab || !tab.url || !tab.url.includes('xiaohongshu.com')) {
+          updateStatus('请在小红书发布页面使用', 'error');
+          return;
+        }
+
+        // 确保 content script 已加载
+        const isReady = await ensureContentScriptLoaded(tab.id);
+        if (!isReady) {
+          updateStatus('❌ 页面脚本未就绪，请刷新后重试', 'error');
+          return;
+        }
+
+        // 发送给 content script，处理这一条；要求其在成功页自动点击「立即返回」
+        const resp = await sendMessageToTab(tab.id, {
+          action: 'processOne',
+          mockData: item,
+          autoPublish: batchAutoPublish,
+          clickReturn: true,
+        });
+
+        if (!resp || !resp.success) {
+          updateStatus(`❌ 第 ${i + 1} 条执行失败：${resp?.error || '未知错误'}`, 'error');
+          return;
+        }
+      }
+
+      updateStatus('✅ 所有选中数据已依次处理完成', 'success');
+    } catch (e) {
+      console.error('批量执行失败:', e);
+      updateStatus('❌ 执行失败：' + e.message, 'error');
+    } finally {
+      batchRunning = false;
+      batchStartBtn.disabled = false;
+    }
+  });
+
+  // 渲染批量列表
+  function renderBatchList() {
+    batchListEl.innerHTML = '';
+
+    if (!batchDataList || !batchDataList.length) {
+      const empty = document.createElement('div');
+      empty.className = 'batch-list-item';
+      empty.textContent = '暂无数据，请先点击「加载数据」';
+      batchListEl.appendChild(empty);
+      batchJsonEl.textContent = '点击「加载数据」，勾选一条开始处理…';
+      return;
+    }
+
+    batchDataList.forEach((item, idx) => {
+      const row = document.createElement('div');
+      row.className = 'batch-list-item';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.dataset.index = String(idx);
+      checkbox.checked = batchSelectedIndexes.has(idx);
+
+      const titleSpan = document.createElement('span');
+      titleSpan.textContent = item.title || `第 ${idx + 1} 条`;
+
+      row.appendChild(checkbox);
+      row.appendChild(titleSpan);
+
+      checkbox.addEventListener('change', (e) => {
+        const index = Number(e.target.dataset.index);
+        if (e.target.checked) {
+          batchSelectedIndexes.add(index);
+        } else {
+          batchSelectedIndexes.delete(index);
+        }
+        showBatchPreview(index);
+      });
+
+      batchListEl.appendChild(row);
+    });
+  }
+
+  // 显示当前预览 JSON（当前正在处理/选中的数据）
+  function showBatchPreview(index) {
+    const item = batchDataList[index];
+    if (!item) return;
+    batchJsonEl.textContent = JSON.stringify(item, null, 2);
+  }
 
   // 确保 content script 已加载
   async function ensureContentScriptLoaded(tabId) {

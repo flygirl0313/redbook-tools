@@ -20,32 +20,26 @@ body {
 .header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 24px 20px;
+  padding: 6px 20px;
   text-align: center;
 }
 
 .header h1 {
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 500;
   margin-bottom: 6px;
   letter-spacing: 0.5px;
 }
 
-.subtitle {
-  font-size: 13px;
-  opacity: 0.95;
-  font-weight: 400;
-}
-
 /* 内容区域 */
 .content {
-  padding: 20px;
+  padding: 10px;
 }
 
 /* 主按钮 */
 .primary-btn {
   width: 100%;
-  padding: 14px 20px;
+  padding: 6px 20px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
@@ -145,7 +139,7 @@ body {
 
 /* 状态显示 */
 .status {
-  margin-top: 16px;
+  margin-top: 12px;
   padding: 12px 16px;
   background: #f8f9fa;
   border-radius: 6px;
@@ -195,25 +189,140 @@ body {
   color: #f5222d;
 }
 
+/* 批量发布区域 */
+.batch-section {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+}
+
+.batch-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.batch-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.secondary-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: none;
+  background: #4b5563;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.secondary-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.batch-option-row {
+  margin-top: 4px;
+  margin-bottom: 6px;
+}
+
+.batch-checkbox {
+  font-size: 12px;
+  color: #555;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.batch-list-label,
+.batch-json-label {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #888;
+}
+
+.batch-list {
+  margin-top: 2px;
+  max-height: 120px;
+  overflow-y: auto;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+}
+
+.batch-list-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid #f1f3f5;
+  font-size: 12px;
+}
+
+.batch-list-item:last-child {
+  border-bottom: none;
+}
+
+.batch-list-item span {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.batch-json-box {
+  margin-top: 2px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  max-height: 120px;
+  overflow: auto;
+}
+
+.batch-json {
+  font-style: normal;
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: #333;
+}
+
+.batch-start-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: none;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.batch-start-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* 底部 */
 .footer {
-  padding: 16px 20px;
+  padding: 8px 20px;
   background: #f8f9fa;
   border-top: 1px solid #e9ecef;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 8px;
   font-size: 12px;
   color: #999;
-}
-
-.version {
-  color: #999;
-}
-
-.divider-dot {
-  color: #ddd;
 }
 
 .link {
