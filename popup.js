@@ -1,9 +1,9 @@
 // popup.js - 弹出页面交互逻辑
 
 document.addEventListener('DOMContentLoaded', function() {
-  const autoFillBtn = document.getElementById('autoFillBtn');
   const statusDiv = document.getElementById('status');
-  const batchLoadBtn = document.getElementById('batchLoadBtn');
+  const loadBatchBtn = document.getElementById('loadBatchBtn');
+  const loadSingleBtn = document.getElementById('loadSingleBtn');
   const batchStartBtn = document.getElementById('batchStartBtn');
   const batchAutoPublishCheckbox = document.getElementById('batchAutoPublish');
   const batchListEl = document.getElementById('batchList');
@@ -18,68 +18,13 @@ document.addEventListener('DOMContentLoaded', function() {
   // 检查当前标签页是否是小红书发布页面
   checkCurrentPage();
 
-  // 一键自动填充按钮
-  autoFillBtn.addEventListener('click', async () => {
-    try {
-      // 更新状态为加载中
-      updateStatus('正在准备...', 'loading');
-      autoFillBtn.disabled = true;
-
-      // 获取当前活动标签页
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-      // 检查是否在小红书页面
-      if (!tab.url || !tab.url.includes('xiaohongshu.com')) {
-        updateStatus('请在小红书页面使用', 'error');
-        autoFillBtn.disabled = false;
-        return;
-      }
-
-      // 确保 content script 已加载
-      const isReady = await ensureContentScriptLoaded(tab.id);
-      if (!isReady) {
-        updateStatus('❌ 脚本加载失败，请刷新页面重试', 'error');
-        autoFillBtn.disabled = false;
-        return;
-      }
-
-      updateStatus('正在自动填充...', 'loading');
-
-      // 发送自动填充消息
-      chrome.tabs.sendMessage(tab.id, { action: 'autoFill' }, (response) => {
-        if (chrome.runtime.lastError) {
-          console.error('消息发送失败:', chrome.runtime.lastError);
-          updateStatus('❌ 执行失败，请重试', 'error');
-          autoFillBtn.disabled = false;
-          return;
-        }
-
-        if (response && response.success) {
-          updateStatus('✅ 填充成功！请检查后发布', 'success');
-          // 5秒后恢复按钮
-          setTimeout(() => {
-            autoFillBtn.disabled = false;
-            updateStatus('等待操作...', '');
-          }, 5000);
-        } else {
-          updateStatus(`❌ ${response?.error || '填充失败'}`, 'error');
-          autoFillBtn.disabled = false;
-        }
-      });
-
-    } catch (error) {
-      console.error('操作失败:', error);
-      updateStatus('❌ 操作失败: ' + error.message, 'error');
-      autoFillBtn.disabled = false;
-    }
-  });
-
   // 批量：加载数据
-  batchLoadBtn.addEventListener('click', async () => {
+  loadBatchBtn.addEventListener('click', async () => {
     try {
-      batchLoadBtn.disabled = true;
-      updateStatus('⏳ 正在加载数据...', 'loading');
+      loadBatchBtn.disabled = true;
+      updateStatus('⏳ 正在加载批量数据...', 'loading');
 
+      // 批量：从 mock.json 拉取数组（后续可换成正式接口）
       const url = chrome.runtime.getURL('source/mock.json');
       const response = await fetch(url);
       if (!response.ok) {
@@ -94,12 +39,43 @@ document.addEventListener('DOMContentLoaded', function() {
       batchSelectedIndexes = new Set();
       renderBatchList();
 
-      updateStatus(`✅ 已加载 ${data.length} 条数据`, 'success');
+      updateStatus(`✅ 已加载 ${data.length} 条批量数据`, 'success');
     } catch (e) {
       console.error('加载数据失败:', e);
-      updateStatus('❌ 加载失败：' + e.message, 'error');
+      updateStatus('❌ 加载批量数据失败：' + e.message, 'error');
     } finally {
-      batchLoadBtn.disabled = false;
+      loadBatchBtn.disabled = false;
+    }
+  });
+
+  // 单条：加载 single-data.json（只取第一条）
+  loadSingleBtn.addEventListener('click', async () => {
+    try {
+      loadSingleBtn.disabled = true;
+      updateStatus('⏳ 正在加载单条数据...', 'loading');
+
+      const url = chrome.runtime.getURL('source/single-data.json');
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('HTTP ' + response.status);
+      }
+      const data = await response.json();
+      if (!Array.isArray(data) || !data.length) {
+        throw new Error('single-data.json 数据为空或格式错误');
+      }
+
+      // 只使用第一条
+      batchDataList = [data[0]];
+      batchSelectedIndexes = new Set([0]);
+      renderBatchList();
+      showBatchPreview(0);
+
+      updateStatus('✅ 已加载单条数据', 'success');
+    } catch (e) {
+      console.error('加载单条数据失败:', e);
+      updateStatus('❌ 加载单条数据失败：' + e.message, 'error');
+    } finally {
+      loadSingleBtn.disabled = false;
     }
   });
 

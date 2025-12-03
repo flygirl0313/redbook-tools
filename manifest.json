@@ -4,7 +4,10 @@
   "version": "1.0.0",
   "description": "自动填充小红书发布内容，快速完成发布流程",
   "permissions": ["activeTab", "storage", "tabs", "scripting"],
-  "host_permissions": ["https://*.xiaohongshu.com/*"],
+  "host_permissions": [
+    "https://*.xiaohongshu.com/*",
+    "http://localhost:35729/*"
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "小红书发布助手",

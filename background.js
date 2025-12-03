@@ -123,4 +123,43 @@ chrome.action.onClicked.addListener((tab) => {
   }
 });
 
+// ==================== 开发环境：自动刷新支持 ====================
+// content script 会定时发消息来获取当前「版本号」，基于 dev/hot-reload-server.js
+// 当检测到版本变化时，会再发一个消息让这里刷新扩展 + 当前标签页
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  // 开发专用：轮询本地热重载服务器
+  if (request.action === "dev-poll-version") {
+    (async () => {
+      try {
+        const res = await fetch(
+          "http://localhost:35729/__redbook_tools_version",
+          {
+            cache: "no-store",
+          }
+        );
+        const data = await res.json();
+        sendResponse({ success: true, version: data.version });
+      } catch (error) {
+        // 没有启动 dev 服务器时静默失败即可
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true; // 异步 sendResponse
+  }
+
+  // 开发专用：收到指令后，刷新当前标签页 + 扩展本身
+  if (request.action === "dev-reload-extension-and-tab") {
+    if (sender.tab && sender.tab.id !== undefined) {
+      chrome.tabs.reload(sender.tab.id);
+    }
+    // 延迟一点点再 reload，确保上面的 reload 已经发出去
+    setTimeout(() => {
+      chrome.runtime.reload();
+    }, 200);
+
+    sendResponse({ success: true });
+    return true;
+  }
+});
+
 console.log("🚀 Background Service Worker 已启动");

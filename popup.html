@@ -9,46 +9,43 @@
 <body>
   <div class="container">
     <div class="header">
-      <h1>📝 小红书发布助手</h1>
+      <h1>📝 发布助手</h1>
     </div>
 
     <div class="content">
-      <div class="batch-section">
-        <div class="batch-header-row">
-          <span class="batch-title">批量发布</span>
-          <button id="batchLoadBtn" class="secondary-btn">加载数据</button>
-        </div>
-
-        <div class="batch-option-row">
-          <label class="batch-checkbox">
-            <input type="checkbox" id="batchAutoPublish" checked>
-            <span>自动发布（不勾选则暂存离开）</span>
-          </label>
-        </div>
-
-        <div class="batch-list-label">数据列表（可多选）</div>
-        <div id="batchList" class="batch-list"></div>
-
-        <div class="batch-json-label">当前处理数据（JSON）</div>
-        <div class="batch-json-box">
-          <i id="batchJson" class="batch-json">点击「加载数据」，勾选一条开始处理…</i>
-        </div>
-
-        <button id="batchStartBtn" class="batch-start-btn">开始批量</button>
+      <div class="top-buttons-row">
+        <button id="loadBatchBtn" class="secondary-btn">加载批量</button>
+        <button id="loadSingleBtn" class="secondary-btn">加载单条</button>
       </div>
-      <div class="divider"></div>
-      <button id="autoFillBtn" class="primary-btn">
-        <span class="icon">✨</span>
-        <span>自动填充（单条）</span>
-      </button>
+
+      <div class="batch-option-row">
+        <label class="batch-checkbox">
+          <input type="checkbox" id="batchAutoPublish" checked>
+          <span>自动发布（不勾选则暂存离开）</span>
+        </label>
+      </div>
+
+      <div class="batch-list-label">数据列表（可多选）</div>
+      <div id="batchList" class="batch-list"></div>
+
+      <div class="batch-json-label">当前处理数据（JSON）</div>
+      <div class="batch-json-box">
+        <i id="batchJson" class="batch-json">点击上方「加载批量」或「加载单条」，勾选一条开始处理…</i>
+      </div>
+
       <div class="status" id="status">
         <span class="status-icon">●</span>
         <span class="status-text">等待操作...</span>
       </div>
+
+      <button id="batchStartBtn" class="primary-btn start-btn">
+        <span class="icon">✨</span>
+        <span>开始发布</span>
+      </button>
     </div>
 
     <div class="footer">
-      <a href="https://creator.xiaohongshu.com/publish/publish" target="_blank" class="link">打开发布页</a>
+      <a href="https://creator.xiaohongshu.com/publish/publish?target=image" target="_blank" class="link">打开发布页</a>
     </div>
   </div>
 

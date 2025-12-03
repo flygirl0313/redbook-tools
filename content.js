@@ -594,7 +594,8 @@ async function selectGoods(mockData) {
 
     goodsButton.click();
     console.log("已点击商品按钮");
-    await utils.sleep(1500);
+    // 页面响应很快，这里等待时间不需要太长，适当缩短
+    await utils.sleep(800);
 
     // 2. 等待弹窗
     const modal = await findModal();
@@ -791,12 +792,12 @@ async function searchAndSelectGoods(modal, commodityIds) {
 
       // 聚焦并清空
       searchInput.focus();
-      await utils.sleep(1000);
+      await utils.sleep(500);
 
       // 清空输入框
       searchInput.value = "";
       utils.setReactInputValue(searchInput, "");
-      await utils.sleep(1000);
+      await utils.sleep(500);
 
       // 输入商品ID
       utils.setReactInputValue(searchInput, commodityId);
@@ -830,7 +831,7 @@ async function searchAndSelectGoods(modal, commodityIds) {
       );
 
       console.log("⏳ 等待搜索结果加载（2.5秒）...");
-      await utils.sleep(3000);
+      await utils.sleep(1500);
     } else {
       console.warn("❌ 所有方法都失败，未找到搜索框");
       console.log("📊 Modal 调试信息:");
@@ -853,7 +854,7 @@ async function selectGoodsByIdInModal(modal, commodityId) {
   console.log("📊 Modal 的 className:", modal.className);
 
   // 等待一下确保DOM已更新
-  await utils.sleep(800);
+  await utils.sleep(400);
 
   // 详细调试：查找商品列表容器
   console.log("🔍 查找商品列表容器...");
@@ -1200,6 +1201,36 @@ async function clickDraftButton() {
   draftBtn.click();
   console.log("✅ 已点击暂存离开按钮");
   utils.showToast("✅ 已自动点击暂存离开，请等待页面响应", 5000);
+
+  // 暂存后会自动打开草稿箱抽屉，这里尝试自动关闭
+  await closeDraftDrawer();
+
+  return true;
+}
+
+// 尝试关闭草稿箱抽屉（header 右上角关闭按钮）
+async function closeDraftDrawer(timeout = 8000) {
+  console.log("开始尝试关闭草稿箱抽屉...");
+  const startTime = Date.now();
+  let closeBtn = null;
+
+  while (Date.now() - startTime < timeout && !closeBtn) {
+    closeBtn =
+      document.querySelector(".d-drawer-header .d-drawer-close") ||
+      document.querySelector(".d-drawer-close");
+
+    if (closeBtn) break;
+    await utils.sleep(300);
+  }
+
+  if (!closeBtn) {
+    console.warn("⚠️ 未找到草稿箱抽屉关闭按钮，可能抽屉未打开");
+    return false;
+  }
+
+  closeBtn.click();
+  console.log("✅ 已关闭草稿箱抽屉");
+  utils.showToast("✅ 已关闭草稿箱抽屉", 2500);
   return true;
 }
 
@@ -1229,7 +1260,23 @@ async function clickImmediateReturnButton(timeout = 15000) {
 
   returnBtn.click();
   console.log("✅ 已点击「立即返回」按钮");
-  utils.showToast("✅ 已点击「立即返回」，准备继续下一条", 3000);
+  utils.showToast("✅ 已点击「立即返回」，等待页面返回首屏...", 3000);
+
+  // 继续等待返回到首屏上传页，避免第二条过早开始导致页面还没完全初始化
+  const backStart = Date.now();
+  const backTimeout = timeout;
+  while (Date.now() - backStart < backTimeout) {
+    try {
+      if (isFirstStepUploadPage()) {
+        console.log("✅ 检测到首屏上传页已就绪，可以开始下一条");
+        break;
+      }
+    } catch (e) {
+      console.warn("检测首屏上传页出错:", e);
+    }
+    await utils.sleep(500);
+  }
+
   return true;
 }
 
@@ -1313,22 +1360,38 @@ class XHSAutoFiller {
   }
 
   async waitForPageReady() {
-    console.log("等待页面加载...");
-    const selectors = [
-      'input[placeholder*="标题"]',
-      '[contenteditable="true"]',
-    ];
+    console.log("等待编辑页面加载...");
 
-    for (let selector of selectors) {
-      try {
-        await utils.waitForElement(selector, 5000);
-      } catch (e) {
-        console.warn(`元素未找到: ${selector}`);
+    const start = Date.now();
+    const timeout = 20000; // 最多等 20 秒
+
+    while (Date.now() - start < timeout) {
+      // 标题输入 & 编辑器任意其一出现即可视为编辑页就绪
+      const titleInput =
+        document.querySelector('input[placeholder*="标题"]') ||
+        document.querySelector('[class*="title-container"] input');
+      const editor =
+        document.querySelector(
+          '[class*="editor-container"] [contenteditable="true"]'
+        ) ||
+        document.querySelector('.tiptap.ProseMirror[contenteditable="true"]');
+
+      if (titleInput && editor) {
+        console.log("✅ 已检测到标题输入框与编辑器");
+        await utils.sleep(500);
+        console.log("✅ 编辑页面加载完成");
+        return;
       }
+
+      // 如果仍然是首屏上传页，就提示一下并继续等待
+      if (isFirstStepUploadPage()) {
+        console.log("⏳ 当前仍在首屏上传页，等待自动跳转到编辑页...");
+      }
+
+      await utils.sleep(500);
     }
 
-    await utils.sleep(800);
-    console.log("✅ 页面加载完成");
+    throw new Error("编辑页面在预期时间内未就绪，请稍后重试");
   }
 
   // 通用：对任意一条数据执行填充 + 发布/暂存
@@ -1355,20 +1418,19 @@ class XHSAutoFiller {
 
     if (autoPublish) {
       await clickPublishButton();
+
+      utils.showToast("✨ 本条内容已自动填充并尝试发布", 4000);
+
+      // 发布成功页有「立即返回」按钮，这里可选点击
+      if (clickReturn) {
+        await clickImmediateReturnButton();
+      }
     } else {
       await clickDraftButton();
-    }
 
-    utils.showToast(
-      autoPublish
-        ? "✨ 本条内容已自动填充并尝试发布"
-        : "✨ 本条内容已自动填充并暂存离开",
-      4000
-    );
-
-    // 如需要，尝试在发布/暂存成功页点击「立即返回」
-    if (clickReturn) {
-      await clickImmediateReturnButton();
+      utils.showToast("✨ 本条内容已自动填充并暂存离开", 4000);
+      // 暂存离开场景页面会自动返回且无「立即返回」按钮，
+      // 已在 clickDraftButton 中处理草稿箱抽屉关闭，这里不再额外处理返回按钮
     }
   }
 
@@ -1448,3 +1510,57 @@ style.textContent = `
 document.head.appendChild(style);
 
 console.log("🎉 小红书自动填充工具已就绪");
+
+// ==================== 开发环境：自动刷新支持 ====================
+// 说明：
+// - 仅在本地开发时使用，需要先运行：npm run dev
+// - 内容脚本每隔一段时间向 background 询问当前「版本号」
+// - dev/hot-reload-server.js 监听到文件变化后会更新版本号
+// - 一旦版本变化，就自动刷新当前页面 + 扩展本身
+(() => {
+  // 避免在非浏览器环境 / 无法使用 chrome.runtime 时报错
+  if (
+    typeof chrome === "undefined" ||
+    !chrome.runtime ||
+    !chrome.runtime.sendMessage
+  ) {
+    return;
+  }
+
+  let lastVersion = null;
+  const INTERVAL = 1000; // 1s 轮询一次，已经足够及时
+
+  const timer = setInterval(() => {
+    try {
+      chrome.runtime.sendMessage({ action: "dev-poll-version" }, (response) => {
+        if (!response || !response.success || !response.version) {
+          return;
+        }
+
+        if (lastVersion === null) {
+          lastVersion = response.version;
+          return;
+        }
+
+        if (response.version !== lastVersion) {
+          lastVersion = response.version;
+          console.log("🔁 检测到扩展文件变更，自动刷新页面和扩展...");
+
+          chrome.runtime.sendMessage(
+            { action: "dev-reload-extension-and-tab" },
+            () => {
+              // 扩展会在 background 里处理刷新逻辑，这里的回调可能不会触发
+            }
+          );
+        }
+      });
+    } catch (e) {
+      // 开发环境网络错误 / 背景页暂时不可用都忽略
+    }
+  }, INTERVAL);
+
+  // 理论上内容脚本跟随页面生命周期，不需要清理 timer，这里只是以防万一
+  window.addEventListener("beforeunload", () => {
+    clearInterval(timer);
+  });
+})();

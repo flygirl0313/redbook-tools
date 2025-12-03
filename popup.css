@@ -20,7 +20,7 @@ body {
 .header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 6px 20px;
+  padding: 8px 20px;
   text-align: center;
 }
 
@@ -190,25 +190,12 @@ body {
 }
 
 /* 批量发布区域 */
-.batch-section {
-  margin-top: 12px;
-  padding: 12px;
-  border-radius: 8px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-}
-
-.batch-header-row {
+.top-buttons-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
 
-.batch-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .secondary-btn {
@@ -227,7 +214,6 @@ body {
 }
 
 .batch-option-row {
-  margin-top: 4px;
   margin-bottom: 6px;
 }
 
@@ -295,21 +281,11 @@ body {
 }
 
 .batch-start-btn {
-  margin-top: 8px;
-  width: 100%;
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: none;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
+  display: none;
 }
 
-.batch-start-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.start-btn {
+  margin-top: 10px;
 }
 
 /* 底部 */
