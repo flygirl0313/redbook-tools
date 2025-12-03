@@ -1,0 +1,22 @@
+{
+  "name": "redbook-tools",
+  "version": "1.0.0",
+  "description": "小红书工具集浏览器插件",
+  "main": "background.js",
+  "scripts": {
+    "build": "echo '构建完成'",
+    "dev": "echo '开发模式'",
+    "lint": "echo '代码检查'",
+    "test": "echo '测试'"
+  },
+  "keywords": [
+    "chrome-extension",
+    "xiaohongshu",
+    "redbook",
+    "tools"
+  ],
+  "author": "flygirl0313",
+  "license": "MIT",
+  "devDependencies": {},
+  "dependencies": {}
+}

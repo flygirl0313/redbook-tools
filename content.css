@@ -1,0 +1,23 @@
+/* 内容脚本样式 - 注入到小红书页面中 */
+
+.redbook-tool-download:hover {
+    background: rgba(0,0,0,0.9) !important;
+}
+
+.redbook-tool-copy:hover {
+    background: #e61e3c !important;
+}
+
+/* 确保工具按钮不被其他样式覆盖 */
+.redbook-tool-download,
+.redbook-tool-copy {
+    z-index: 9999 !important;
+    user-select: none !important;
+}
+
+/* 隐藏广告时的过渡效果 */
+.ad-container.hidden,
+[data-testid="ad"].hidden {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
