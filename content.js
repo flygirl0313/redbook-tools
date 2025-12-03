@@ -149,28 +149,29 @@ async function uploadImages(mockData) {
     const imgUploadArea = document.querySelector('[class*="img-upload-area"]');
     if (!imgUploadArea) throw new Error("未找到图片上传区域");
 
-    const imgPreviewArea = imgUploadArea.querySelector(
-      '[class*="img-preview-area"]'
-    );
-    if (!imgPreviewArea) throw new Error("未找到图片预览区域");
+    // 找到上层的 img-list，后面所有 input 查询都限制在这个区域内，避免误选其它 input。
+    // 现在页面一进来就已经渲染好了隐藏的 file input，所以不需要再点击「添加」按钮来触发。
+    const imgList =
+      imgUploadArea.closest(".img-list") ||
+      imgUploadArea.closest('[class*="img-list"]') ||
+      document;
 
-    const flexList = imgPreviewArea.querySelector('[class*="flex-list"]');
-    if (!flexList) throw new Error("未找到图片列表");
+    console.log("找到图片上传区域与 img-list，直接设置文件进行上传");
 
-    const entry = flexList.querySelector('[class*="entry"]');
-    if (!entry) throw new Error("未找到添加按钮");
+    // 2. 查找文件输入框（不再点击“添加”按钮）
+    // 之前用的是 [accept*="image"]，但现在页面上是 ".jpg,.jpeg,.png,.webp"，不会匹配到，导致一直找不到 input
+    // 这里改为：优先找当前图片区域里的 multiple 文件输入框
+    let fileInput =
+      imgList.querySelector('input[type="file"][multiple]') ||
+      imgList.querySelector('input[type="file"]');
 
-    console.log("找到图片上传区域");
+    if (!fileInput) {
+      console.warn("⚠️ 在 img-list 中未找到文件输入框，退回到全局查找");
+      fileInput =
+        document.querySelector('input[type="file"][multiple]') ||
+        document.querySelector('input[type="file"]');
+    }
 
-    // 2. 点击添加按钮
-    entry.click();
-    console.log("已点击添加按钮");
-    await utils.sleep(800);
-
-    // 3. 查找文件输入框
-    const fileInput = document.querySelector(
-      'input[type="file"][accept*="image"]'
-    );
     if (!fileInput) throw new Error("未找到文件输入框");
 
     // 4. 下载图片
@@ -230,58 +231,314 @@ async function downloadImageAsFile(url, filename) {
   });
 }
 
-// ==================== 标签添加模块 ====================
+// ==================== 首屏上传页：选择 tab & 上传图片 ====================
+
+// 判断当前是否为首屏的「上传图文」页面（有 tab 和首屏上传区域）
+function isFirstStepUploadPage() {
+  const headerTabs = document.querySelector(".header-tabs");
+  const firstStepInput = document.querySelector(
+    ".upload-wrapper input.upload-input[type='file']"
+  );
+  return !!(headerTabs && firstStepInput);
+}
+
+// 在首屏上传页中，自动选择「上传图文」tab 并用 mockData.images 上传图片
+async function handleFirstStepUploadPage(mockData) {
+  console.log("检测到首屏上传页，开始选择「上传图文」并上传图片...");
+
+  const headerTabs = document.querySelector(".header-tabs");
+  const uploadWrapper = document.querySelector(".upload-wrapper");
+  const fileInput =
+    uploadWrapper &&
+    uploadWrapper.querySelector("input.upload-input[type='file']");
+
+  if (!headerTabs || !uploadWrapper || !fileInput) {
+    console.warn("⚠️ 首屏上传页关键元素缺失，跳过首屏处理");
+    return false;
+  }
+
+  // 1. 选中「上传图文」tab（即便已经选中，再点击一次也不会有副作用）
+  try {
+    const tabTitles = headerTabs.querySelectorAll(".creator-tab .title");
+    for (const titleEl of tabTitles) {
+      const text = (titleEl.textContent || "").trim();
+      if (text.includes("上传图文")) {
+        const tab = titleEl.closest(".creator-tab");
+        if (tab) {
+          console.log("点击「上传图文」tab");
+          tab.click();
+          await utils.sleep(300);
+        }
+        break;
+      }
+    }
+  } catch (e) {
+    console.warn("选择「上传图文」tab 时出错:", e);
+  }
+
+  // 2. 使用 mockData.images 上传图片
+  const imageUrls =
+    mockData && Array.isArray(mockData.images) ? mockData.images : [];
+
+  if (!imageUrls.length) {
+    console.log("mockData.images 为空，首屏不需要上传图片");
+    return false;
+  }
+
+  try {
+    utils.showToast("📸 首屏开始下载图片...");
+
+    const files = [];
+    for (let i = 0; i < imageUrls.length; i++) {
+      utils.showToast(`📥 首屏下载图片 ${i + 1}/${imageUrls.length}...`);
+      try {
+        const file = await downloadImageAsFile(
+          imageUrls[i],
+          `first-step-image-${i + 1}.jpg`
+        );
+        files.push(file);
+        console.log(`✅ 首屏图片 ${i + 1} 下载完成`);
+      } catch (error) {
+        console.error(`❌ 首屏图片 ${i + 1} 下载失败:`, error);
+      }
+    }
+
+    if (!files.length) {
+      throw new Error("首屏图片全部下载失败");
+    }
+
+    console.log(`准备向首屏 file input 注入 ${files.length} 张图片`);
+    const dataTransfer = new DataTransfer();
+    files.forEach((file) => dataTransfer.items.add(file));
+    fileInput.files = dataTransfer.files;
+
+    fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+    fileInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    console.log("✅ 首屏图片上传中...");
+    utils.showToast("✅ 首屏图片已开始上传，请稍候...", 3000);
+    await utils.sleep(1500);
+
+    return true;
+  } catch (error) {
+    console.error("首屏图片上传出错:", error);
+    utils.showToast("⚠️ 首屏图片上传失败", 3000);
+    return false;
+  }
+}
+
+// 这里本来有一套「下一步」按钮点击逻辑，但实际页面在首屏上传完成后会自动进入编辑页，
+// 无需也不存在「下一步」按钮，因此相关函数已移除。
+
+// ==================== 标签添加模块（基于编辑器内输入 # 触发话题列表） ====================
+
+// 将光标移动到内容编辑器末尾
+function placeCaretAtEnd(element) {
+  if (!element) return;
+
+  element.focus();
+
+  if (window.getSelection && document.createRange) {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    range.collapse(false); // 光标移到末尾
+
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+}
+
+// 判断元素是否可见（用于话题列表容器）
+function isElementVisible(el) {
+  if (!el) return false;
+  const style = window.getComputedStyle(el);
+  const rect = el.getBoundingClientRect();
+  return (
+    style.display !== "none" &&
+    style.visibility !== "hidden" &&
+    rect.width > 0 &&
+    rect.height > 0
+  );
+}
+
+// 判断是否为话题面板容器，而不是已经插入到正文里的 a.tiptap-topic
+function isTopicContainer(el) {
+  if (!isElementVisible(el)) return false;
+
+  const tag = el.tagName.toLowerCase();
+
+  // 排除正文里的话题链接本身
+  if (tag === "a" && el.classList.contains("tiptap-topic")) return false;
+  if (el.closest(".tiptap-topic")) return false;
+
+  // 优先确认真正的话题列表容器
+  if (el.id === "creator-editor-topic-container") return true;
+  if (el.classList.contains("items")) return true;
+  if (el.classList.contains("recommend-topic-wrapper")) return true;
+
+  // 一般情况下，包含 .item 的才是我们需要的容器
+  if (el.querySelector && el.querySelector(".item")) return true;
+
+  return false;
+}
 
 async function addTags(mockData) {
-  console.log("开始处理标签...");
+  console.log("开始处理标签（先输入 #，再通过话题面板搜索并选择）...");
 
   if (!mockData.tags || mockData.tags.length === 0) {
     console.log("没有标签需要添加");
     return;
   }
 
+  // 找到编辑器（与 fillContent 保持一致）
+  const editorContainer = document.querySelector('[class*="editor-container"]');
+  if (!editorContainer) {
+    console.warn("⚠️ 未找到编辑器容器，无法添加标签");
+    return;
+  }
+
+  const tiptapEditor = editorContainer.querySelector(
+    '.tiptap.ProseMirror[contenteditable="true"]'
+  );
+  if (!tiptapEditor) {
+    console.warn("⚠️ 未找到 TipTap 编辑器，无法添加标签");
+    return;
+  }
+
   try {
     for (let i = 0; i < mockData.tags.length; i++) {
       const tag = mockData.tags[i];
-      console.log(`添加标签 ${i + 1}/${mockData.tags.length}: ${tag}`);
+      const tagName = tag.replace(/^#/, "").replace(/#$/, "").trim();
+      console.log(`添加标签 ${i + 1}/${mockData.tags.length}: ${tagName}`);
 
-      const tagName = tag.replace(/^#/, "").replace(/#$/, "");
+      // 1. 聚焦编辑器，将光标移动到末尾
+      placeCaretAtEnd(tiptapEditor);
+      await utils.sleep(200);
 
-      // 1. 点击话题按钮
-      const topicsButton = document.querySelector('[class*="topics"]');
-      if (!topicsButton) {
-        console.warn("⚠️ 未找到话题按钮");
-        continue;
+      // 2. 在编辑器内只输入一个 "#"，触发话题面板
+      console.log("在编辑器中插入文本: #");
+      let insertedHash = false;
+      try {
+        insertedHash = document.execCommand("insertText", false, "#");
+      } catch (e) {
+        console.warn("document.execCommand 插入 # 失败，使用降级方案:", e);
+        insertedHash = false;
       }
 
-      topicsButton.click();
-      await utils.sleep(800);
+      if (!insertedHash) {
+        // 降级方案：直接追加文本节点，并触发 input 事件
+        tiptapEditor.appendChild(document.createTextNode("#"));
+        tiptapEditor.dispatchEvent(new Event("input", { bubbles: true }));
+      }
 
-      // 2. 等待话题容器
-      let topicContainer =
-        document.querySelector("#creator-editor-topic-container") ||
-        document.querySelector('[class*="creator-editor-topic-container"]');
+      // 模拟一次按键事件，尽量贴近真实输入
+      const hashEventInit = {
+        key: "#",
+        code: "Digit3", // 常见键位映射
+        keyCode: 51,
+        which: 51,
+        bubbles: true,
+      };
+      tiptapEditor.dispatchEvent(new KeyboardEvent("keydown", hashEventInit));
+      tiptapEditor.dispatchEvent(new KeyboardEvent("keypress", hashEventInit));
+      tiptapEditor.dispatchEvent(new KeyboardEvent("keyup", hashEventInit));
+
+      // 3. 紧接着在同一个编辑器里输入标签文本（真实交互就是在 # 后继续打字）
+      if (tagName) {
+        let insertedText = false;
+        try {
+          insertedText = document.execCommand("insertText", false, tagName);
+        } catch (e) {
+          console.warn(
+            "document.execCommand 插入标签文本失败，使用降级方案:",
+            e
+          );
+          insertedText = false;
+        }
+
+        if (!insertedText) {
+          tiptapEditor.appendChild(document.createTextNode(tagName));
+          tiptapEditor.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+
+        // 稍等一会儿，让内部逻辑根据 "#标签" 刷新话题列表
+        await utils.sleep(400);
+      }
+
+      // 4. 等待话题列表容器出现（你说需要“等一会”，这里给到 4 秒）
+      console.log("等待话题列表容器出现...");
+      let topicContainer = null;
+      const startTime = Date.now();
+      const timeout = 4000;
+
+      while (Date.now() - startTime < timeout && !topicContainer) {
+        // 直接寻找真正的话题列表容器：id 为 creator-editor-topic-container 的元素
+        const el = document.querySelector("#creator-editor-topic-container");
+        if (el && isElementVisible(el)) {
+          topicContainer = el;
+          break;
+        }
+
+        await utils.sleep(100);
+      }
 
       if (!topicContainer) {
-        console.warn("⚠️ 话题容器未出现");
+        console.warn("⚠️ 在超时时间内未找到话题列表容器，跳过该标签");
+
+        // 打印调试信息，方便在控制台确认真实容器名称
+        const debugCandidates = Array.from(
+          document.querySelectorAll('[id*="topic"], [class*="topic"]')
+        ).map((el) => ({
+          tag: el.tagName,
+          id: el.id,
+          className: el.className,
+        }));
+        console.log("📊 当前页面中包含 topic 的元素:", debugCandidates);
         continue;
       }
 
-      // 3. 如果有输入框，输入标签名
-      const topicInput = topicContainer.querySelector("input");
-      if (topicInput) {
-        topicInput.focus();
-        await utils.sleep(200);
-        utils.setReactInputValue(topicInput, tagName);
-        console.log("已输入标签名:", tagName);
-        await utils.sleep(1000);
+      console.log("✅ 找到话题列表容器:", topicContainer);
+
+      // 5. 等待话题列表中的 item 渲染出来（有可能容器先出现，内容稍后才挂载）
+      let topicItems = [];
+      const itemsStart = Date.now();
+      const itemsTimeout = 5000; // 给网络和渲染更多时间
+
+      while (
+        Date.now() - itemsStart < itemsTimeout &&
+        topicItems.length === 0
+      ) {
+        topicItems = Array.from(topicContainer.querySelectorAll(".item"));
+        if (topicItems.length === 0) {
+          await utils.sleep(100);
+        }
       }
 
-      // 4. 查找并点击匹配的标签
-      const topicItems = topicContainer.querySelectorAll(".item");
+      // 如果当前容器里还是没有 item，再全局兜底找一次真正的列表容器
+      if (topicItems.length === 0) {
+        const globalItemsContainer = document.querySelector(
+          "#creator-editor-topic-container"
+        );
+        if (globalItemsContainer && isElementVisible(globalItemsContainer)) {
+          const globalItems = Array.from(
+            globalItemsContainer.querySelectorAll(".item")
+          );
+          if (globalItems.length > 0) {
+            topicContainer = globalItemsContainer;
+            topicItems = globalItems;
+          }
+        }
+      }
+
       console.log(`找到 ${topicItems.length} 个话题项`);
 
-      let found = false;
+      if (topicItems.length === 0) {
+        console.warn("⚠️ 话题列表为空，跳过该标签");
+        continue;
+      }
+
+      let targetItem = null;
       for (let item of topicItems) {
         const nameElement = item.querySelector(".name");
         if (!nameElement) continue;
@@ -292,22 +549,25 @@ async function addTags(mockData) {
           nameText.includes(`#${tagName}`) ||
           nameText.replace("#", "") === tagName
         ) {
+          targetItem = item;
           console.log("找到匹配的话题:", nameText);
-          item.click();
-          console.log("✅ 已点击话题项");
-          found = true;
-          await utils.sleep(500);
           break;
         }
       }
 
-      if (!found && topicItems.length > 0) {
-        console.log("未找到匹配项，点击第一个");
-        topicItems[0].click();
-        await utils.sleep(500);
+      // 如果没有找到完全匹配的，就退而求其次选择第一个
+      if (!targetItem) {
+        targetItem = topicItems[0];
+        const fallbackName =
+          targetItem.querySelector(".name")?.textContent.trim() || "";
+        console.log("未找到精确匹配项，点击第一个:", fallbackName);
       }
 
-      await utils.sleep(300);
+      targetItem.click();
+      console.log("✅ 已点击话题项");
+
+      // 给 ProseMirror 一点时间处理插入
+      await utils.sleep(500);
     }
 
     console.log("✅ 所有标签处理完成");
@@ -356,6 +616,7 @@ async function selectGoods(mockData) {
 }
 
 function findGoodsButton() {
+  // 方法1：老的容器按钮（button）
   const container = document.querySelector(
     '[class*="multi-good-select-empty-btn"]'
   );
@@ -364,13 +625,24 @@ function findGoodsButton() {
     if (btn) return btn;
   }
 
-  const allButtons = document.querySelectorAll("button");
-  for (let btn of allButtons) {
-    const text = btn.textContent.trim();
+  // 方法2：新的 a.operation-addButton 链接
+  const addLink =
+    document.querySelector("a.operation-addButton") ||
+    document.querySelector("a.d-link.operation-addButton") ||
+    document.querySelector("a.d-text.operation-addButton");
+  if (addLink && addLink.textContent.includes("添加商品")) {
+    return addLink;
+  }
+
+  // 方法3：遍历所有 button 和 a，通过文本匹配
+  const clickableEls = document.querySelectorAll("button, a");
+  for (let el of clickableEls) {
+    const text = el.textContent.trim();
     if (text.includes("添加商品") || text.includes("选择商品")) {
-      return btn;
+      return el;
     }
   }
+
   return null;
 }
 
@@ -389,8 +661,14 @@ async function findModal() {
     console.log(`  找到 ${elements.length} 个元素`);
 
     for (let el of elements) {
-      // 必须是可见的，并且包含 d-modal class
-      const isVisible = el.offsetParent !== null && el.style.display !== "none";
+      // 判断是否可见（不能再用 offsetParent，position: fixed 会是 null）
+      const style = window.getComputedStyle(el);
+      const rect = el.getBoundingClientRect();
+      const isVisible =
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        rect.width > 0 &&
+        rect.height > 0;
       const isModal = el.classList.contains("d-modal");
 
       console.log(`  元素检查:`, {
@@ -414,8 +692,13 @@ async function findModal() {
 
   for (let modal of allModals) {
     const className = modal.className || "";
+    const style = window.getComputedStyle(modal);
+    const rect = modal.getBoundingClientRect();
     const isVisible =
-      modal.offsetParent !== null && modal.style.display !== "none";
+      style.display !== "none" &&
+      style.visibility !== "hidden" &&
+      rect.width > 0 &&
+      rect.height > 0;
 
     console.log(`  检查 modal:`, {
       className,
@@ -454,20 +737,34 @@ async function searchAndSelectGoods(modal, commodityIds) {
     // 更精确地查找搜索框（按优先级尝试）
     let searchInput = null;
 
-    // 方法1: 通过 d-input-wrapper 精确查找
-    const inputWrapper = modal.querySelector(".d-input-wrapper");
+    // 方法1: 通过 d-input-wrapper（包含 d-inline-block）精确查找
+    const inputWrapper =
+      modal.querySelector(".d-input-wrapper.d-inline-block") ||
+      modal.querySelector(".d-input-wrapper");
     if (inputWrapper) {
-      searchInput = inputWrapper.querySelector("input.d-text");
+      // 这里不要再强依赖 input 上的 class，直接拿第一个可见的 input 即可
+      const wrapperInputs = inputWrapper.querySelectorAll("input");
+      for (const input of wrapperInputs) {
+        if (input.offsetParent !== null) {
+          searchInput = input;
+          break;
+        }
+      }
       if (searchInput) {
-        console.log("✅ 方法1成功：通过 .d-input-wrapper 找到搜索框");
+        console.log(
+          "✅ 方法1成功：通过 .d-input-wrapper 找到搜索框 ->",
+          searchInput
+        );
       }
     }
 
     console.log("🔍 searchInput1:", searchInput);
 
-    // 方法2: 通过 placeholder 查找
+    // 方法2: 通过 placeholder 查找（兼容各种文案，例如"商品名称/ID"等）
     if (!searchInput) {
-      searchInput = modal.querySelector('input[placeholder*="搜索商品"]');
+      searchInput = modal.querySelector(
+        'input[placeholder*="搜索商品"], input[placeholder*="商品"], input[placeholder*="ID"]'
+      );
       if (searchInput) {
         console.log("✅ 方法2成功：通过 placeholder 找到搜索框");
       }
@@ -475,11 +772,14 @@ async function searchAndSelectGoods(modal, commodityIds) {
 
     console.log("🔍 searchInput2:", searchInput);
 
-    // 方法3: 通过 class 直接查找
+    // 方法3: 通过通用的 text input 查找（不再强依赖 d-text）
     if (!searchInput) {
-      searchInput = modal.querySelector('input.d-text[type="text"]');
+      // 优先找 type="text" 的输入框
+      searchInput =
+        modal.querySelector('input.d-text[type="text"]') ||
+        modal.querySelector('input[type="text"]');
       if (searchInput) {
-        console.log("✅ 方法3成功：通过 class 找到搜索框");
+        console.log("✅ 方法3成功：通过通用 input[type=text] 找到搜索框");
       }
     }
 
@@ -780,6 +1080,68 @@ async function clickActionButton(modal, hasSelected) {
   }
 }
 
+// 自动点击发布按钮
+async function clickPublishButton() {
+  console.log("开始尝试点击发布按钮...");
+
+  const timeout = 10000;
+  const startTime = Date.now();
+  let publishBtn = null;
+
+  while (Date.now() - startTime < timeout && !publishBtn) {
+    // 1. 优先按 class 精确查找
+    publishBtn = document.querySelector("button.publishBtn");
+
+    // 2. 兜底：通过文本内容匹配「发布」
+    if (!publishBtn) {
+      const buttons = document.querySelectorAll("button");
+      for (const btn of buttons) {
+        const text = (btn.textContent || "").trim();
+        if (text === "发布" || text.includes("发布")) {
+          publishBtn = btn;
+          break;
+        }
+      }
+    }
+
+    if (publishBtn) break;
+    await utils.sleep(300);
+  }
+
+  if (!publishBtn) {
+    console.warn("⚠️ 未找到发布按钮，跳过自动发布");
+    utils.showToast("⚠️ 未找到发布按钮，请手动点击发布", 4000);
+    return false;
+  }
+
+  // 等按钮可点击（非 disabled）
+  const canClick = () => {
+    const disabled =
+      publishBtn.disabled ||
+      publishBtn.getAttribute("aria-disabled") === "true" ||
+      publishBtn.classList.contains("is-disabled");
+    return !disabled;
+  };
+
+  const enableTimeout = 10000;
+  const enableStart = Date.now();
+  while (Date.now() - enableStart < enableTimeout && !canClick()) {
+    console.log("发布按钮已找到但不可点击，等待中...");
+    await utils.sleep(300);
+  }
+
+  if (!canClick()) {
+    console.warn("⚠️ 发布按钮始终不可点击，放弃自动发布");
+    utils.showToast("⚠️ 发布按钮不可点击，请手动检查必填项后发布", 4000);
+    return false;
+  }
+
+  publishBtn.click();
+  console.log("✅ 已点击发布按钮");
+  utils.showToast("✅ 已自动点击发布，请等待发布结果", 5000);
+  return true;
+}
+
 // ==================== 主控制器 ====================
 
 class XHSAutoFiller {
@@ -807,14 +1169,32 @@ class XHSAutoFiller {
       await this.loadMockData();
       utils.showToast("✅ 数据加载完成");
 
-      // 3. 等待页面就绪
+      // 3. 如果当前是首屏上传页（有 tab 和首屏上传区域），则：
+      //    - 选中「上传图文」tab
+      //    - 使用 mockData.images 上传首屏图片
+      // 首屏上传完成后，小红书页面会自动进入编辑页，这里不再额外点击「下一步」按钮，
+      // 直接继续等待编辑页元素出现并执行后续填充流程。
+      if (isFirstStepUploadPage()) {
+        const uploaded = await handleFirstStepUploadPage(this.mockData);
+        if (!uploaded) {
+          utils.showToast(
+            "ℹ️ 已尝试处理首屏，但部分图片可能未成功上传，请稍后检查",
+            4000
+          );
+        }
+      }
+
+      // 4. 等待编辑页页面就绪
       await this.waitForPageReady();
 
-      // 4. 执行填充流程
+      // 5. 执行填充流程（编辑页）
+      // 图片已经在首屏上传页处理过，这里不再重复上传，避免多次触发上传逻辑
+      /*
       if (this.mockData.images && this.mockData.images.length > 0) {
         await uploadImages(this.mockData);
         await utils.sleep(1000);
       }
+      */
 
       await fillTitle(this.mockData);
       await utils.sleep(500);
@@ -831,7 +1211,13 @@ class XHSAutoFiller {
         await selectGoods(this.mockData);
       }
 
-      utils.showToast("✨ 自动填充完成！请检查后点击发布", 4000);
+      // 6. 自动点击发布按钮（如果能找到且可点击）
+      await clickPublishButton();
+
+      utils.showToast(
+        "✨ 自动填充完成！如页面仍未发布，请手动检查后点击发布",
+        4000
+      );
     } catch (error) {
       console.error("自动填充失败:", error);
       utils.showToast(`❌ 填充失败: ${error.message}`, 4000);
