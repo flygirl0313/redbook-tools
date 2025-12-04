@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>周计划生成器</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* 打印专用样式 */
+        @media print {
+            @page { margin: 0; size: A4; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .no-print { display: none !important; }
+        }
+
+        body { font-family: 'Noto Serif SC', serif; }
+        .font-hand { font-family: 'Ma Shan Zheng', cursive; }
+
+        /* A4 尺寸强制 */
+        .page-a4 {
+            width: 210mm;
+            height: 296mm; /* 留一点容错 */
+            margin: 0 auto;
+            background: white;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex justify-center items-center min-h-screen">
+
+    <div id="app">
+        <div class="no-print fixed top-4 right-4 bg-white p-4 shadow-lg rounded-lg z-50 w-64">
+            <h3 class="font-bold mb-2 text-gray-800">🛠️ 程序员控制台</h3>
+            <div class="space-y-2 text-sm">
+                <label class="block">
+                    <span class="text-gray-600">主色调 (Hex):</span>
+                    <input type="color" v-model="config.primaryColor" class="w-full h-8 cursor-pointer">
+                </label>
+                <div class="flex gap-2">
+                    <button @click="printDoc" class="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">🖨️ 打印/存PDF</button>
+                </div>
+                <p class="text-xs text-gray-400 mt-2">*修改代码里的 data 对象可深度定制布局</p>
+            </div>
+        </div>
+
+        <div class="page-a4 p-12 flex flex-col relative shadow-2xl" :style="{ color: config.primaryColor }">
+
+            <header class="flex justify-between items-end border-b-4 pb-4 mb-6" :style="{ borderColor: config.primaryColor }">
+                <h1 class="text-7xl font-hand">{{ config.title }}</h1>
+                <div class="flex items-center text-xl gap-2 text-gray-500 font-serif">
+                    <div class="w-16 h-8 rounded bg-opacity-20" :style="{ backgroundColor: config.secondaryColor }"></div> 年
+                    <div class="w-12 h-8 rounded bg-opacity-20" :style="{ backgroundColor: config.secondaryColor }"></div> 周
+                </div>
+            </header>
+
+            <div class="grid grid-cols-2 gap-8 flex-1">
+
+                <div class="flex flex-col gap-6">
+                    <section>
+                        <h2 class="text-xl font-bold border-b-2 mb-2 pb-1" :style="{ borderColor: config.primaryColor }">本周目标</h2>
+                        <div class="w-full h-48 rounded-md bg-opacity-10" :style="{ backgroundColor: config.accentColor }"></div>
+                    </section>
+
+                    <section>
+                        <div class="flex justify-between items-center border-b-2 mb-2 pb-1" :style="{ borderColor: config.primaryColor }">
+                            <h2 class="text-xl font-bold">习惯矩阵</h2>
+                            <div class="flex gap-1 text-sm">
+                                <span v-for="d in ['一','二','三','四','五','六','日']" class="w-6 text-center">{{ d }}</span>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <div v-for="i in 6" :key="i" class="flex items-center justify-between">
+                                <div class="flex-1 border-b mr-4 border-gray-200 h-6"></div>
+                                <div class="flex gap-1">
+                                    <div v-for="j in 7" class="w-6 h-6 border rounded bg-white" :style="{ borderColor: '#dbaeb3' }"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="flex-1 flex flex-col">
+                        <h2 class="text-xl font-bold border-b-2 mb-2 pb-1" :style="{ borderColor: config.primaryColor }">本周总结 & 改进</h2>
+                        <div class="flex-1 rounded-md bg-opacity-10 w-full" :style="{ backgroundColor: config.accentColor }"></div>
+                    </section>
+                </div>
+
+                <div class="flex flex-col justify-between h-full">
+                    <div class="flex justify-between items-center border-b-2 mb-4 pb-1" :style="{ borderColor: config.primaryColor }">
+                         <h2 class="text-xl font-bold">每日任务拆解</h2>
+                    </div>
+
+                    <div v-for="(day, index) in days" :key="index" class="flex gap-4 mb-2 flex-1">
+                        <div class="w-8 flex items-center justify-center font-bold text-xl opacity-80 writing-mode-vertical">
+                            {{ day }}
+                        </div>
+                        <div class="flex-1 rounded-md bg-opacity-10"
+                             :style="{ backgroundColor: index % 2 === 0 ? config.accentColor : config.secondaryColor }">
+                             </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, reactive } = Vue;
+
+        createApp({
+            setup() {
+                // === 这里是程序员的配置中心 ===
+                const config = reactive({
+                    title: '周工作计划',
+                    primaryColor: '#2c5282',   // 深蓝文字色
+                    accentColor: '#ebf8ff',    // 浅蓝背景色
+                    secondaryColor: '#fff5f5', // 浅粉背景色
+                });
+
+                const days = ref(['一', '二', '三', '四', '五', '六', '日']);
+
+                const printDoc = () => {
+                    window.print();
+                };
+
+                return {
+                    config,
+                    days,
+                    printDoc
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

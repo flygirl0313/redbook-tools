@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>周工作计划模板</title>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;700&display=swap');
+
+    :root {
+        --primary-blue: #2c5282; /* 深蓝标题色 */
+        --light-blue-bg: #ebf8ff; /* 浅蓝背景 */
+        --light-pink-bg: #fff5f5; /* 浅粉背景 */
+        --line-color: #2c5282;
+    }
+
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        font-family: "Noto Serif SC", serif;
+        width: 210mm; /* A4 宽度 */
+        height: 297mm; /* A4 高度 */
+        margin: 0 auto;
+        padding: 15mm;
+        color: #333;
+        background-color: white;
+    }
+
+    /* 顶部标题区 */
+    header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+    }
+
+    h1 {
+        font-family: "Ma Shan Zheng", cursive, serif; /* 尝试模拟手写风格，如果没有网络则回退 */
+        font-size: 48pt;
+        color: var(--primary-blue);
+        line-height: 1;
+    }
+
+    .date-input {
+        display: flex;
+        align-items: center;
+        font-size: 14pt;
+        color: #666;
+    }
+
+    .box-input {
+        width: 60px;
+        height: 30px;
+        background-color: var(--light-pink-bg);
+        border: none;
+        margin: 0 5px;
+        border-radius: 4px;
+    }
+
+    /* 布局容器 */
+    .container {
+        display: grid;
+        grid-template-columns: 48% 48%; /* 左右两栏 */
+        column-gap: 4%;
+        height: 85%;
+    }
+
+    /* 通用标题样式 */
+    h2 {
+        font-size: 14pt;
+        color: var(--primary-blue);
+        border-bottom: 2px solid var(--primary-blue);
+        padding-bottom: 5px;
+        margin-bottom: 10px;
+        margin-top: 5px;
+    }
+
+    /* 左栏 */
+    .left-col {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .goal-box {
+        background-color: var(--light-blue-bg);
+        height: 200px;
+        width: 100%;
+        margin-bottom: 20px;
+        border-radius: 4px;
+    }
+
+    .habit-section {
+        margin-bottom: 20px;
+    }
+
+    .habit-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12pt;
+        color: var(--primary-blue);
+        padding-right: 5px;
+        margin-bottom: 5px;
+    }
+
+    .habit-days {
+        display: flex;
+        gap: 8px;
+    }
+
+    .habit-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 2px;
+    }
+
+    .habit-name-line {
+        flex-grow: 1;
+        height: 20px;
+        margin-right: 10px;
+    }
+
+    .habit-checks {
+        display: flex;
+        gap: 8px;
+    }
+
+    .check-circle {
+        width: 20px;
+        height: 20px;
+        border: 1px solid #dbaeb3; /* 浅红边框 */
+        border-radius: 4px; /* 原图接近圆角矩形 */
+        background-color: #fff;
+    }
+
+    .summary-box {
+        background-color: var(--light-blue-bg);
+        flex-grow: 1;
+        width: 100%;
+        border-radius: 4px;
+    }
+
+    /* 右栏 */
+    .right-col {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .day-row {
+        display: flex;
+        height: 12.5%; /* 平均分配高度 */
+        margin-bottom: 10px;
+    }
+
+    .day-label {
+        width: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--primary-blue);
+        font-size: 14pt;
+        font-weight: bold;
+    }
+
+    .day-content {
+        flex-grow: 1;
+        border-radius: 4px;
+    }
+
+    /* 颜色交替 */
+    .day-row:nth-child(odd) .day-content {
+        background-color: var(--light-blue-bg);
+    }
+
+    .day-row:nth-child(even) .day-content {
+        background-color: var(--light-pink-bg);
+    }
+
+    /* 打印设置 */
+    @media print {
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        body {
+            padding: 10mm 15mm;
+            -webkit-print-color-adjust: exact;
+        }
+    }
+</style>
+</head>
+<body>
+
+    <header>
+        <h1>周工作计划</h1>
+        <div class="date-input">
+            <div class="box-input"></div> 年
+            <div class="box-input"></div> 周
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="left-col">
+            <h2>本周目标</h2>
+            <div class="goal-box"></div>
+
+            <h2>习惯矩阵</h2>
+            <div class="habit-section">
+                <div class="habit-header">
+                    <span></span>
+                    <div class="habit-days">
+                        <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+                    </div>
+                </div>
+
+                <script>
+                    for(let i=0; i<6; i++) {
+                        document.write(`
+                        <div class="habit-row">
+                            <div class="habit-name-line"></div>
+                            <div class="habit-checks">
+                                <div class="check-circle"></div>
+                                <div class="check-circle"></div>
+                                <div class="check-circle"></div>
+                                <div class="check-circle"></div>
+                                <div class="check-circle"></div>
+                                <div class="check-circle"></div>
+                                <div class="check-circle"></div>
+                            </div>
+                        </div>
+                        `);
+                    }
+                </script>
+            </div>
+
+            <h2>本周总结 & 改进计划</h2>
+            <div class="summary-box"></div>
+        </div>
+
+        <div class="right-col">
+            <h2>每日任务拆解</h2>
+
+            <div class="day-row">
+                <div class="day-label">一</div>
+                <div class="day-content"></div>
+            </div>
+            <div class="day-row">
+                <div class="day-label">二</div>
+                <div class="day-content"></div>
+            </div>
+            <div class="day-row">
+                <div class="day-label">三</div>
+                <div class="day-content"></div>
+            </div>
+            <div class="day-row">
+                <div class="day-label">四</div>
+                <div class="day-content"></div>
+            </div>
+            <div class="day-row">
+                <div class="day-label">五</div>
+                <div class="day-content"></div>
+            </div>
+            <div class="day-row">
+                <div class="day-label">六</div>
+                <div class="day-content"></div>
+            </div>
+            <div class="day-row">
+                <div class="day-label">日</div>
+                <div class="day-content"></div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
